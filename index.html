@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小說</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap">
+<style>
+:root{
+  --stage:#3b4c50; --stage-deep:#2c3b3f;
+  --paper:#e8eae0; --ink:#232c2d; --ink-soft:#66716f;
+  --cloth:#1d3b3e; --cloth-deep:#152d30; --silver:#c8d3ca;
+  --serif:"Noto Serif TC","Noto Serif CJK TC","Source Han Serif TC","Songti TC","PMingLiU",serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(120% 90% at 50% 40%,var(--stage),var(--stage-deep));color:var(--silver);
+  font-family:var(--serif);overflow:hidden;display:flex;flex-direction:column;height:100dvh}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--silver);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:normal}
+
+#stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#book{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
+  transition:transform .62s cubic-bezier(.3,.1,.2,1)}
+#book.dragging{cursor:grabbing}
+#spine{position:absolute;top:0;width:0;height:100%}
+.edge{position:absolute;top:3px;bottom:3px;background:repeating-linear-gradient(90deg,#cfd2c7 0 1px,#aeb3a9 1px 2px);
+  box-shadow:0 8px 22px rgba(10,20,22,.4)}
+.edge.l{border-radius:2px 0 0 2px}.edge.r{border-radius:0 2px 2px 0}
+
+.face{position:absolute;top:0;overflow:hidden;background:var(--paper);color:var(--ink);transform-origin:0 0}
+.face.off,.wrap.off,#castclip.off{display:none}
+.wrap{position:absolute;inset:0;pointer-events:none;filter:drop-shadow(0 0 10px rgba(12,22,24,.38))}
+.single .wrap{filter:none}
+.c{position:absolute;inset:0}
+.shade{position:absolute;left:0;top:0;height:0;transform-origin:0 50%;pointer-events:none}
+#front .shade{background:linear-gradient(90deg,rgba(25,38,40,.2),rgba(25,38,40,0))}
+#back .shade{background:linear-gradient(90deg,rgba(255,255,255,.85) 0 1.5px,rgba(25,38,40,.26) 4px,rgba(255,255,255,.2) 24%,rgba(25,38,40,0))}
+#castclip{position:absolute;top:0;overflow:hidden;pointer-events:none}
+#cast{position:absolute;left:0;top:0;transform-origin:0 50%;background:linear-gradient(90deg,rgba(12,22,24,.3),rgba(12,22,24,0))}
+
+.paper.r::after,.paper.l::after{content:"";position:absolute;top:0;bottom:0;width:7%;pointer-events:none}
+.paper.r::after{left:0;background:linear-gradient(90deg,rgba(35,48,50,.15),rgba(35,48,50,0))}
+.paper.l::after{right:0;background:linear-gradient(270deg,rgba(35,48,50,.15),rgba(35,48,50,0))}
+
+.text{position:absolute;overflow:hidden}
+.flow{column-fill:auto;text-align:justify;text-justify:inter-character;line-break:strict;orphans:1;widows:1}
+.flow p{margin:0;text-indent:2em}
+.flow strong{font-weight:900}
+.flow h2{margin:0;font-weight:400;break-inside:avoid;break-after:avoid;display:flex;flex-direction:column;justify-content:center}
+.flow h2 small{font-size:.8em;color:var(--ink-soft);line-height:1.6}
+.flow h2 b{font-weight:900;font-size:3.4em;line-height:1.1}
+.folio,.running{position:absolute;font-size:12px;color:var(--ink-soft);line-height:1}
+.epigraph{position:absolute;display:flex;align-items:center}
+.epigraph p{margin:0;text-align:justify;text-justify:inter-character;line-break:strict}
+
+.cloth{position:absolute;inset:0;background:linear-gradient(100deg,var(--cloth-deep),var(--cloth) 9%,var(--cloth));color:var(--silver)}
+.cloth.back{background:linear-gradient(260deg,var(--cloth-deep),var(--cloth) 9%,var(--cloth))}
+.cloth svg,.titlepage svg{position:absolute;inset:0;width:100%;height:100%}
+.vt{position:absolute;left:50%;writing-mode:vertical-rl;transform:translateX(-50%);font-weight:900;line-height:1;white-space:nowrap}
+.byline{position:absolute;left:0;right:0;text-align:center}
+.views{opacity:.72}
+.ribbon{position:absolute;top:0;width:14px;height:46px;background:#2f6467;clip-path:polygon(0 0,100% 0,100% 100%,50% 80%,0 100%)}
+.endpaper{position:absolute;inset:0;background:var(--cloth-deep)}
+.titlepage{position:absolute;inset:0;color:var(--ink)}
+
+#bar{flex:none;height:52px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:14px;padding:0 8px}
+#bar button{min-width:44px;height:44px;padding:0 10px;border-radius:3px}
+#bar button:hover{background:rgba(200,211,202,.13)}
+#bar button[aria-pressed=true]{background:var(--silver);color:var(--cloth-deep)}
+#bar button:disabled{opacity:.3;cursor:default;background:none}
+#where{min-width:10em;text-align:center;font-variant-numeric:tabular-nums}
+#sizeBtn{margin-right:6px}
+#prev,#next{font-size:18px}
+
+dialog{border:0;padding:28px 30px;width:min(340px,86vw);max-height:80dvh;overflow:auto;background:var(--paper);color:var(--ink);font-family:var(--serif)}
+dialog::backdrop{background:rgba(20,32,34,.6)}
+dialog h2{margin:0 0 14px;font-size:20px;font-weight:900}
+dialog ol{list-style:none;margin:0;padding:0}
+dialog li button{width:100%;display:flex;justify-content:space-between;padding:11px 2px;border-bottom:1px solid #c9cdc2;font-size:16px;text-align:left}
+dialog li button:hover{color:#2f6467}
+dialog li span{color:var(--ink-soft);font-variant-numeric:tabular-nums}
+dialog :focus-visible{outline-color:var(--cloth)}
+dialog h2+ol,dialog h2+p{margin-top:0}
+#marksTitle{margin-top:26px}
+#markList li{display:flex;align-items:stretch;border-bottom:1px solid #c9cdc2}
+#markList .go{display:block;flex:1;min-width:0;border:0;padding:10px 2px}
+#markList .go b{display:block;font-weight:400}
+#markList .go span{display:block;font-size:13px;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#markList .rm{flex:none;width:auto;display:block;border:0;padding:0 2px 0 12px;font-size:14px;color:var(--ink-soft)}
+#noMarks{margin:0;font-size:14px;line-height:1.8;color:var(--ink-soft)}
+#dialogFoot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:14px;color:var(--ink-soft)}
+#closeToc{padding:8px 0;color:var(--ink);font-size:16px}
+
+#notice{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;line-height:1.8}
+#notice label{border:1px solid var(--silver);padding:10px 20px;cursor:pointer}
+#notice input{position:absolute;opacity:0;width:1px}
+#notice label:focus-within{outline:2px solid var(--silver);outline-offset:2px}
+#measure{position:fixed;left:-99999px;top:0;visibility:hidden}
+@media (max-width:420px){#bar{font-size:13px;gap:0}#where{min-width:7.6em}#sizeBtn{margin-right:0}#bar button{padding:0 4px;min-width:36px}}
+</style>
+</head>
+<body>
+<main id="stage">
+  <div id="notice" role="status">正在打開書本…</div>
+  <div id="book" hidden aria-hidden="true">
+    <div class="edge l"></div><div class="edge r"></div>
+    <div id="spine">
+      <div id="baseL" class="face off"><div class="c"></div></div>
+      <div id="baseR" class="face off"><div class="c"></div></div>
+      <div id="castclip" class="off"><div id="cast"></div></div>
+      <div id="front" class="face off"><div class="c"></div><i class="shade"></i></div>
+      <div id="backwrap" class="wrap off"><div id="back" class="face"><div class="c"></div><i class="shade"></i></div></div>
+    </div>
+  </div>
+  <article id="fulltext" class="sr"></article>
+</main>
+<nav id="bar" aria-label="閱讀工具" hidden>
+  <button id="tocBtn" type="button">目錄</button>
+  <button id="markBtn" type="button" aria-pressed="false">書籤</button>
+  <button id="sizeBtn" type="button"></button>
+  <button id="prev" type="button" aria-label="上一頁">‹</button>
+  <span id="where" aria-live="polite"></span>
+  <button id="next" type="button" aria-label="下一頁">›</button>
+</nav>
+<dialog id="toc" aria-labelledby="tocTitle">
+  <h2 id="tocTitle">目錄</h2>
+  <ol id="tocList"></ol>
+  <h2 id="marksTitle">書籤</h2>
+  <ol id="markList"></ol>
+  <p id="noMarks">還沒有書籤。翻到想留下的那一頁，按下方工具列的「書籤」。</p>
+  <div id="dialogFoot"><button id="closeToc" type="button">關閉</button><span class="views"></span></div>
+</dialog>
+<div id="measure" aria-hidden="true"></div>
+
+<!--BOOK-DATA-->
+<script>
+/* ===== 可以修改的設定 ===== */
+const CONFIG = {
+  file: 'novel.docx',  // 第一個 Word 檔；續集依序命名 novel-2.docx、novel-3.docx…
+  author: '',          // 想在封面顯示的作者名或筆名，留空就不顯示
+  views: true          // 是否統計並顯示閱覽次數（使用免費的 Abacus 計數服務）
+};
+/* ========================== */
+
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const HEADING = /^(CH(APTER)?\.?\s*[IVXLCDM\d]+|第[一二三四五六七八九十百千零〇\d]+[章回節卷部])(\s.*)?$/i;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ---------- 讀取 Word 檔 ---------- */
+async function unzipEntry(buf, name) {
+  const v = new DataView(buf), td = new TextDecoder();
+  let e = buf.byteLength - 22;
+  while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('not a zip');
+  let p = v.getUint32(e + 16, true);
+  for (let i = 0, n = v.getUint16(e + 10, true); i < n; i++) {
+    const method = v.getUint16(p + 10, true), size = v.getUint32(p + 20, true);
+    const nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true);
+    const off = v.getUint32(p + 42, true);
+    if (td.decode(new Uint8Array(buf, p + 46, nl)) === name) {
+      const start = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true);
+      const raw = new Uint8Array(buf, start, size);
+      if (method === 0) return td.decode(raw);
+      const s = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Response(s).text();
+    }
+    p += 46 + nl + xl + cl;
+  }
+  throw new Error('no ' + name);
+}
+
+async function readParas(buf) {
+  const xml = await unzipEntry(buf, 'word/document.xml');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const on = (rPr, tag) => {
+    const el = rPr && rPr.getElementsByTagNameNS(W, tag)[0];
+    if (!el) return false;
+    const val = el.getAttributeNS(W, 'val');
+    return val !== '0' && val !== 'false';
+  };
+  const paras = [];
+  for (const p of doc.getElementsByTagNameNS(W, 'p')) {
+    const runs = [];
+    for (const r of p.getElementsByTagNameNS(W, 'r')) {
+      let t = '';
+      for (const n of r.children) {
+        if (n.namespaceURI !== W) continue;
+        if (n.localName === 't') t += n.textContent;
+        else if (n.localName === 'tab') t += '　';
+      }
+      if (!t) continue;
+      const bold = on(r.getElementsByTagNameNS(W, 'rPr')[0], 'b');
+      const last = runs[runs.length - 1];
+      if (last && last[1] === bold) last[0] += t; else runs.push([t, bold]);
+    }
+    if (runs.some(x => x[0].trim())) paras.push(runs);
+  }
+  return paras;
+}
+
+const labelKey = t => t.replace(/\s+/g, '').toUpperCase();
+/* 把 novel.docx、novel-2.docx… 接成一本書。後面的檔案若有同名章節，會取代前面的版本。 */
+function mergeParts(parts) {
+  const plain = r => r.map(x => x[0]).join('').trim();
+  const first = parts[0] || [];
+  const book = { title: first.length ? plain(first[0]) : '未命名', front: [], chapters: [] };
+  let cur = null;
+  parts.forEach((paras, n) => {
+    const list = n === 0 ? paras.slice(1) : (paras.length && plain(paras[0]) === book.title ? paras.slice(1) : paras);
+    for (const r of list) {
+      const t = plain(r);
+      if (HEADING.test(t)) {
+        cur = book.chapters.find(c => labelKey(c.label) === labelKey(t));
+        if (cur) cur.paras = [];
+        else { cur = { label: t, paras: [] }; book.chapters.push(cur); }
+      }
+      else if (cur) cur.paras.push(r);
+      else book.front.push(r);
+    }
+  });
+  if (!book.chapters.length) book.chapters.push({ label: '', paras: book.front.splice(0) });
+  return book;
+}
+
+async function fetchPart(name) {
+  const res = await fetch(name, { cache: 'no-cache' });
+  return res.ok ? readParas(await res.arrayBuffer()) : null;
+}
+async function loadParts() {
+  const parts = [await fetchPart(CONFIG.file)];
+  if (!parts[0]) throw new Error('missing ' + CONFIG.file);
+  for (let n = 2; n <= 500; n++) {
+    let part = null;
+    try { part = await fetchPart(CONFIG.file.replace(/\.docx$/i, `-${n}.docx`)); }
+    catch (e) { console.warn(`第 ${n} 個 Word 檔讀取失敗`, e); }
+    if (!part) break;
+    parts.push(part);
+  }
+  return parts;
+}
+
+/* ---------- 版面與分頁 ---------- */
+const runsHTML = r => r.map(([t, b]) => b ? `<strong>${esc(t)}</strong>` : esc(t)).join('');
+function headingHTML(label, lines) {
+  if (!label) return '';
+  const m = label.match(/^(CH(?:APTER)?\.?)\s*(\S+)$/i);
+  const inner = m ? `<small>${esc(m[1])}</small><b>${esc(m[2])}</b>` : `<b style="font-size:1.7em">${esc(label)}</b>`;
+  return `<h2 style="height:${lines}lh;height:calc(var(--lh)*${lines})">${inner}</h2>`;
+}
+
+let book, M, faces = [], chapterHTML = [], chapterStart = [], spread = 0, sizeStep = 0, maxSpread = 0;
+let turn = null, raf = 0;
+let marks = [], markedFaces = new Set(), viewCount = null, flashTimer = 0;
+const SIZES = [[-2, '小'], [0, '中'], [2, '大']];
+
+function metrics() {
+  const vw = innerWidth, availH = $('#stage').clientHeight - 20;
+  const double = vw >= 760 && vw / availH > 1.05;
+  let W, H;
+  if (double) { W = Math.floor(Math.min((vw - 56) / 2, availH * .7) / 2) * 2; H = Math.min(availH, Math.round(W / .7)); }
+  else { W = Math.floor(Math.min(vw - 14, availH * .74)); H = Math.floor(Math.min(availH, W / .6)); }
+  const mx = Math.max(20, Math.round(W * .1)), gut = double ? Math.round(W * .025) : Math.round(W * .015);
+  const fs = Math.max(13, Math.min(22, Math.round(W / (double ? 27 : 23))) + sizeStep);
+  const lh = Math.round(fs * 1.85);
+  const textW = Math.floor((W - 2 * mx - gut) / fs) * fs;
+  const top = Math.round(H * .085), bottom = Math.round(H * .095);
+  const textH = Math.floor((H - top - bottom) / lh) * lh;
+  const side = Math.round((W - gut - textW) / 2);
+  return { double, W, H, fs, lh, textW, textH, top, side, gut, gap: side * 2 + gut };
+}
+
+function paginate() {
+  const m = M, box = $('#measure');
+  box.style.cssText += `;font-size:${m.fs}px;line-height:${m.lh}px;--lh:${m.lh}px`;
+  chapterHTML = book.chapters.map(c =>
+    headingHTML(c.label, Math.min(7, Math.floor(m.textH / m.lh / 3))) + c.paras.map(r => `<p>${runsHTML(r)}</p>`).join(''));
+  return chapterHTML.map(html => {
+    box.innerHTML = `<div class="flow" style="${flowStyle()};overflow:hidden">${html}</div>`;
+    const f = box.firstChild;
+    return Math.max(1, Math.round((f.scrollWidth + m.gap) / (m.textW + m.gap)));
+  }).map(n => { measured = null; return n; });
+}
+
+/* 用「章內第幾個字」記位置，換字級或換裝置後仍能找回同一段文字 */
+let measured = null;
+function measureChapter(c) {
+  if (measured && measured.c === c) return measured;
+  const box = $('#measure');
+  box.innerHTML = `<div class="flow" style="${flowStyle()};overflow:hidden">${chapterHTML[c]}</div>`;
+  const flow = box.firstChild, nodes = [], walk = document.createTreeWalker(flow, NodeFilter.SHOW_TEXT);
+  let total = 0, text = '';
+  while (walk.nextNode()) { nodes.push({ n: walk.currentNode, at: total }); total += walk.currentNode.length; text += walk.currentNode.data; }
+  return measured = { c, flow, nodes, total, text };
+}
+function columnAt(m, off) {
+  let lo = 0, hi = m.nodes.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (m.nodes[mid].at <= off) lo = mid; else hi = mid - 1; }
+  const { n, at } = m.nodes[lo], r = document.createRange(), i = Math.min(off - at, n.length - 1);
+  r.setStart(n, i); r.setEnd(n, i + 1);
+  const q = r.getClientRects()[0];
+  return q ? Math.floor((q.left - m.flow.getBoundingClientRect().left + 1) / (M.textW + M.gap)) : -1;
+}
+function pageStart(c, page) {
+  const m = measureChapter(c); let lo = 0, hi = m.total;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (columnAt(m, mid) >= page) hi = mid; else lo = mid + 1; }
+  return lo;
+}
+function pageOfOffset(c, off) {
+  const m = measureChapter(c);
+  if (!m.total) return 0;
+  return Math.max(0, columnAt(m, Math.max(0, Math.min(off, m.total - 1))));
+}
+function chapterOf(loc) {
+  if (loc.l != null) { const i = book.chapters.findIndex(c => labelKey(c.label) === labelKey(loc.l)); if (i >= 0) return i; }
+  return loc.c != null && book.chapters[loc.c] ? loc.c : -1;
+}
+function faceOf(loc) {
+  const c = chapterOf(loc); if (c < 0) return -1;
+  const n = M.pages[c], page = loc.o != null ? pageOfOffset(c, loc.o) : Math.round((loc.r || 0) * n);
+  return chapterStart[c] + Math.min(n - 1, page);
+}
+const flowStyle = () => `width:${M.textW}px;height:${M.textH}px;column-width:${M.textW}px;column-count:auto;column-gap:${M.gap}px`;
+
+function buildFaces(counts) {
+  const F = [], push = (t, x) => F.push({ t, ...x });
+  push('cover');
+  if (M.double) push('endpaper');
+  push('title');
+  if (book.front.length) { if (M.double) { push('blank'); } push('epigraph'); }
+  let folio = 0; chapterStart = [];
+  counts.forEach((n, c) => {
+    if (M.double && F.length % 2 === 1) push('blank');
+    chapterStart[c] = F.length;
+    for (let i = 0; i < n; i++) push('text', { c, i, n, folio: ++folio });
+  });
+  if (M.double) {
+    if (F.length % 2 === 1) push('blank');   // 蝴蝶頁在右、封底在左
+    push('endpaper'); push('back');
+  } else push('back');
+  faces = F; M.total = folio;
+  maxSpread = M.double ? Math.ceil((F.length - 1) / 2) : F.length - 1;
+}
+
+const leftOf = s => M.double ? faces[2 * s - 1] : null;
+const rightOf = s => M.double ? faces[2 * s] : faces[s];
+
+/* ---------- 頁面內容 ---------- */
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function rain(W, H, n, color, clearBand) {
+  seed = 11; let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = Math.round(rnd() * W * 10) / 10, len = H * (.12 + rnd() * rnd() * .8), o = (.14 + rnd() * .4).toFixed(2);
+    if (x < W * .035 || x > W * .985 || (clearBand && Math.abs(x - W / 2) < clearBand)) continue;
+    s += `<line x1="${x}" x2="${x}" y1="0" y2="${len.toFixed(1)}" stroke-opacity="${o}"/><circle cx="${x}" cy="${len.toFixed(1)}" r="1.5" fill-opacity="${o}" stroke="none"/>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><g stroke="${color}" fill="${color}" stroke-width=".7">${s}</g></svg>`;
+}
+function fallingTitle(W, H, color, scale) {
+  const chars = [...book.title], last = chars.length > 1 ? chars.pop() : '', a = W * .135 * scale, b = W * .25 * scale;
+  const fit = Math.min(a, H * .4 / Math.max(1, chars.length) / 1.1);
+  const top = H * .13, endA = top + chars.length * fit * 1.1, lastTop = H * .86 - b;
+  return `<div class="vt" style="top:${top}px;font-size:${fit}px;letter-spacing:.1em">${esc(chars.join(''))}</div>` +
+    (last ? `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><line x1="${W/2}" x2="${W/2}" y1="${endA + fit*.15}" y2="${lastTop - b*.12}" stroke="${color}" stroke-width="1"/></svg>
+      <div class="vt" style="top:${lastTop}px;font-size:${b}px">${esc(last)}</div>` : '');
+}
+
+function faceHTML(f) {
+  const { W, H, top, side, gut, fs, lh, textW, textH } = M;
+  switch (f.t) {
+    case 'cover': return `<div class="cloth">${rain(W, H, 74, '#c8d3ca', W * .17)}${fallingTitle(W, H, '#c8d3ca', 1)}${byline(H * .885)}<div class="byline views" style="top:${H * .935}px;font-size:${Math.max(12, W * .027)}px">${viewsText()}</div></div>`;
+    case 'back': return `<div class="cloth back">${rain(W, H, 74, '#c8d3ca')}</div>`;
+    case 'endpaper': return `<div class="endpaper"></div>`;
+    case 'title': return `<div class="titlepage">${fallingTitle(W, H, '#66716f', .62)}</div>`;
+    case 'epigraph': return `<div class="epigraph" style="left:${f.x}px;top:${top}px;width:${textW}px;height:${textH}px;font-size:${fs}px;line-height:${lh}px"><div>${book.front.map(r => `<p>${runsHTML(r)}</p>`).join('')}</div></div>`;
+    case 'text': {
+      const dx = f.i * (textW + M.gap), label = book.chapters[f.c].label;
+      const edge = f.side === 'r' ? 'right' : 'left', folioPos = `${edge}:${side}px`;
+      const ribbon = f.marked ? `<i class="ribbon" style="${edge}:${Math.round(W * .04)}px"></i>` : '';
+      return `<div class="text" style="left:${f.x}px;top:${top}px;width:${textW}px;height:${textH}px;font-size:${fs}px;line-height:${lh}px;--lh:${lh}px">
+        <div class="flow" style="${flowStyle()};transform:translateX(${-dx}px)">${chapterHTML[f.c]}</div></div>
+        <span class="folio" style="bottom:${Math.round(H * .04)}px;${folioPos}">${f.folio}</span>` +
+        (f.i ? `<span class="running" style="top:${Math.round(H * .04)}px;${folioPos}">${esc(label)}</span>` : '') + ribbon;
+    }
+    default: return '';
+  }
+}
+const viewsText = () => viewCount == null ? '' : `閱覽 ${viewCount.toLocaleString('zh-TW')} 次`;
+const byline = y => CONFIG.author ? `<div class="byline" style="top:${y}px;font-size:${M.W * .036}px">${esc(CONFIG.author)}</div>` : '';
+
+function setFace(el, f, side) {
+  const hide = !f;
+  if (el.id !== 'back') el.classList.toggle('off', hide);
+  if (hide) { el._k = null; return; }
+  const x = side === 'l' ? M.side : M.side + M.gut;
+  const marked = f.t === 'text' && markedFaces.has(chapterStart[f.c] + f.i);
+  const key = `${f.t}:${f.c}:${f.i}:${side}:${marked}`;
+  if (el._k !== key) {
+    el._k = key;
+    el.querySelector('.c').innerHTML = faceHTML({ ...f, x, side, marked });
+    const plain = !['cover', 'back', 'endpaper'].includes(f.t);
+    el.classList.toggle('paper', plain); el.classList.toggle('l', plain && side === 'l'); el.classList.toggle('r', plain && side === 'r');
+  }
+}
+
+/* ---------- 摺頁幾何：由右下（或右上）角往左翻 ---------- */
+function clipHalf(poly, M0, n, sign) {
+  const out = [], d = q => ((q[0] - M0[0]) * n[0] + (q[1] - M0[1]) * n[1]) * sign;
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length], da = d(a), db = d(b);
+    if (da >= 0) out.push(a);
+    if (da * db < 0) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  });
+  return out;
+}
+const toClip = pts => pts.length ? `polygon(${pts.map(p => `${p[0].toFixed(1)}px ${p[1].toFixed(1)}px`).join(',')})` : 'inset(50%)';
+
+function constrain(P, C) {
+  const { W, H } = M, D = Math.hypot(W, H);
+  for (const [ay, R] of [[C[1], W], [H - C[1], D]]) {
+    const dx = P[0], dy = P[1] - ay, d = Math.hypot(dx, dy);
+    if (d > R) P = [dx * R / d, ay + dy * R / d];
+  }
+  return P;
+}
+
+function drawTurn() {
+  const { W, H } = M, C = turn.C, P = turn.P = constrain(turn.P, C);
+  const front = $('#front'), back = $('#back'), wrap = $('#backwrap'), cast = $('#cast'), rect = [[0, 0], [W, 0], [W, H], [0, H]];
+  const dist = Math.hypot(C[0] - P[0], C[1] - P[1]);
+  if (dist < .5) { front.style.clipPath = 'none'; wrap.classList.add('off'); $('#castclip').classList.add('off'); front.querySelector('.shade').style.width = 0; return; }
+  wrap.classList.remove('off'); $('#castclip').classList.remove('off');
+  const n = [(C[0] - P[0]) / dist, (C[1] - P[1]) / dist], Mid = [(C[0] + P[0]) / 2, (C[1] + P[1]) / 2];
+  front.style.clipPath = toClip(clipHalf(rect, Mid, n, -1));
+  const peeled = clipHalf(rect, Mid, n, 1);
+  const a11 = 1 - 2 * n[0] * n[0], a12 = -2 * n[0] * n[1], a22 = 1 - 2 * n[1] * n[1], k = 2 * (Mid[0] * n[0] + Mid[1] * n[1]);
+  back.style.transform = `matrix(${-a11},${-a12},${a12},${a22},${a11 * W + k * n[0]},${a12 * W + k * n[1]})`;
+  back.style.clipPath = toClip(peeled.map(p => [W - p[0], p[1]]));
+
+  const prog = Math.max(0, Math.min(1, (W - P[0]) / (2 * W))), fade = Math.sqrt(Math.sin(Math.PI * prog));
+  const L = Math.hypot(W, H) * 2.2, band = (el, x, y, ang, w, o) => {
+    el.style.cssText += `;width:${w}px;height:${L}px;opacity:${o};transform:translate(${x}px,${y - L / 2}px) rotate(${ang}rad)`;
+  };
+  band(front.querySelector('.shade'), Mid[0], Mid[1], Math.atan2(-n[1], -n[0]), W * .22, fade);
+  band(back.querySelector('.shade'), W - Mid[0], Mid[1], Math.atan2(n[1], -n[0]), W * .38, fade);
+  band(cast, Mid[0] + (M.double ? W : 0), Mid[1], Math.atan2(n[1], n[0]), W * .3, fade);
+}
+
+/* ---------- 翻頁動作 ---------- */
+function bookShift(s) {
+  if (!M.double) return 0;
+  return s === 0 ? -M.W / 2 : s === maxSpread ? M.W / 2 : 0;
+}
+function applyShift(s) { $('#book').style.transform = `translateX(${bookShift(s)}px)`; }
+function edges(s) {
+  if (!M.double) return;
+  const f = s / maxSpread, l = s === 0 ? 0 : 2 + Math.round(f * 7), r = s === maxSpread ? 0 : 2 + Math.round((1 - f) * 7);
+  const a = $('.edge.l'), b = $('.edge.r');
+  a.style.cssText = `left:${M.W ? -l : 0}px;width:${M.W + l}px`; a.style.left = -l + 'px';
+  b.style.cssText = `left:${M.W}px;width:${M.W + r}px`;
+  if (s === 0) a.style.display = 'none';
+  if (s === maxSpread) b.style.display = 'none';
+}
+
+function showIdle() {
+  setFace($('#baseL'), leftOf(spread), 'l'); setFace($('#baseR'), rightOf(spread), 'r');
+  $('#front').classList.add('off'); $('#backwrap').classList.add('off'); $('#castclip').classList.add('off');
+  $('#front').style.clipPath = 'none';
+  edges(spread); applyShift(spread); updateBar();
+}
+
+function beginTurn(a, b, C) {
+  const blank = { t: 'blank' };
+  setFace($('#baseL'), leftOf(a), 'l'); setFace($('#baseR'), rightOf(b), 'r');
+  setFace($('#front'), rightOf(a) || blank, 'r');
+  setFace($('#back'), M.double ? (leftOf(b) || blank) : blank, 'l');
+  turn = { a, b, C, P: [...C] };
+}
+function animateTo(target, ms, lift, done) {
+  cancelAnimationFrame(raf);
+  const P0 = [...turn.P], t0 = performance.now(), C = turn.C, dirY = C[1] > 0 ? -1 : 1;
+  const step = now => {
+    const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = t < .5 ? 2 * t * t : 1 - (2 - 2 * t) ** 2 / 2;
+    turn.P = [P0[0] + (target[0] - P0[0]) * e, P0[1] + (target[1] - P0[1]) * e + dirY * lift * Math.sin(Math.PI * e)];
+    drawTurn();
+    if (t < 1) raf = requestAnimationFrame(step); else done();
+  };
+  turn.finish = () => { cancelAnimationFrame(raf); done(); };
+  raf = requestAnimationFrame(step);
+}
+function endTurn(dest) { spread = dest; turn = null; showIdle(); save(); }
+function settle() { if (turn && turn.finish) turn.finish(); }
+
+const step = d => { settle(); goTo(spread + d); };
+function goTo(dest) {
+  settle();
+  dest = Math.max(0, Math.min(maxSpread, dest));
+  if (dest === spread || turn) return;
+  const forward = dest > spread, a = Math.min(dest, spread), b = Math.max(dest, spread);
+  if (reduced.matches) return endTurn(dest);
+  const C = [M.W, M.H];
+  beginTurn(a, b, C);
+  if (!forward) turn.P = [-M.W, M.H];
+  applyShift(dest);
+  animateTo(forward ? [-M.W, M.H] : C, 760, M.H * .09, () => endTurn(dest));
+}
+
+/* ---------- 拖曳與點按 ---------- */
+let drag = null;
+function localX(e) { return e.clientX - $('#spine').getBoundingClientRect().left; }
+function onDown(e) {
+  if (e.button) return;
+  settle();
+  if (turn) return;
+  const r = $('#spine').getBoundingClientRect();
+  drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: localX(e), ly: e.clientY - r.top, moved: false, vx: 0, px: e.clientX, pt: e.timeStamp };
+  $('#book').setPointerCapture(e.pointerId);
+}
+function startDrag(dx) {
+  const { W, H, double } = M, d = drag;
+  const forward = double ? d.lx > 0 : dx < 0;
+  if (forward ? spread >= maxSpread : spread <= 0) return false;
+  const C = [W, d.ly < H / 2 ? 0 : H];
+  d.forward = forward; d.dest = spread + (forward ? 1 : -1);
+  beginTurn(Math.min(spread, d.dest), Math.max(spread, d.dest), C);
+  d.start = forward ? [...C] : [-W, C[1]];
+  const span = forward ? d.lx - (double ? -W : 0) : W - d.lx;
+  d.k = 2 * W / Math.max(W * .35, span);
+  turn.P = [...d.start]; $('#book').classList.add('dragging');
+  return true;
+}
+function onMove(e) {
+  const d = drag; if (!d || e.pointerId !== d.id) return;
+  const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+  if (!d.moved) { if (Math.hypot(dx, dy) < 7) return; d.moved = true; d.active = startDrag(dx); }
+  if (!d.active) return;
+  const dt = e.timeStamp - d.pt; if (dt > 0) { d.vx = (e.clientX - d.px) / dt; d.px = e.clientX; d.pt = e.timeStamp; }
+  turn.P = [d.start[0] + dx * d.k, d.start[1] + dy * .55]; drawTurn();
+}
+function onUp(e) {
+  const d = drag; if (!d || e.pointerId !== d.id) return;
+  drag = null; $('#book').classList.remove('dragging');
+  if (!d.moved) {
+    const nextSide = M.double ? d.lx > 0 : d.lx > M.W * .3;
+    return step(nextSide ? 1 : -1);
+  }
+  if (!d.active) return;
+  if (e.timeStamp - d.pt > 120) d.vx = 0;
+  const { W } = M, C = turn.C, prog = d.forward ? (C[0] - turn.P[0]) / (2 * W) : (turn.P[0] + W) / (2 * W);
+  const flick = d.forward ? d.vx < -.45 : d.vx > .45, against = d.forward ? d.vx > .45 : d.vx < -.45;
+  const commit = e.type !== 'pointercancel' && !against && (flick || prog > .3);
+  const dest = commit ? d.dest : spread, toLeft = (dest === Math.max(turn.a, turn.b) && turn.b === dest);
+  if (commit) applyShift(dest);
+  animateTo(toLeft ? [-W, C[1]] : C, reduced.matches ? 0 : 360, 0, () => endTurn(dest));
+}
+
+/* ---------- 工具列、目錄、記住位置 ---------- */
+const inView = () => [leftOf(spread), rightOf(spread)].filter(f => f && f.t === 'text');
+function updateBar() {
+  clearTimeout(flashTimer);
+  const texts = inView();
+  let s = '';
+  if (texts.length) s = `第 ${texts.map(f => f.folio).join('–')} 頁／共 ${M.total}`;
+  else if (spread === 0) s = '封面';
+  else if (spread === maxSpread) s = '封底';
+  else s = '扉頁';
+  $('#where').textContent = s;
+  $('#prev').disabled = spread === 0; $('#next').disabled = spread === maxSpread;
+  $('#prev').style.opacity = spread === 0 ? .3 : 1; $('#next').style.opacity = spread === maxSpread ? .3 : 1;
+  const on = texts.some(f => markedFaces.has(chapterStart[f.c] + f.i)), btn = $('#markBtn');
+  btn.disabled = !texts.length; btn.setAttribute('aria-pressed', on);
+  btn.setAttribute('aria-label', on ? '移除這一頁的書籤' : '把這一頁加入書籤');
+}
+function flash(msg) { updateBar(); $('#where').textContent = msg; flashTimer = setTimeout(updateBar, 1500); }
+const spreadOf = i => M.double ? Math.ceil(i / 2) : i;
+const storeKey = () => 'flipbook:' + book.title;
+function location_() {
+  const f = inView()[0];
+  if (!f) return { s: spread === maxSpread ? 'end' : spread === 0 ? 'start' : 'front' };
+  return { c: f.c, l: book.chapters[f.c].label, o: pageStart(f.c, f.i) };
+}
+function restore(loc) {
+  if (!loc) return 0;
+  if (loc.s == null) { const i = faceOf(loc); if (i >= 0) return spreadOf(i); return 0; }
+  return loc.s === 'end' ? maxSpread : loc.s === 'front' ? 1 : 0;
+}
+const marksKey = () => storeKey() + ':marks';
+function loadMarks() { try { const v = JSON.parse(localStorage.getItem(marksKey())); marks = Array.isArray(v) ? v : []; } catch (e) { marks = []; } }
+function saveMarks() { try { localStorage.setItem(marksKey(), JSON.stringify(marks.map(({ c, l, o, s }) => ({ c, l, o, s })))); } catch (e) {} }
+function refreshMarks() {
+  markedFaces = new Set();
+  marks.forEach(m => { m.face = faceOf(m); if (m.face >= 0) markedFaces.add(m.face); });
+}
+function afterMarksChange() { saveMarks(); refreshMarks(); renderMarks(); showIdle(); }
+function toggleMark() {
+  const texts = inView(); if (!texts.length) return;
+  settle();
+  const ids = texts.map(f => chapterStart[f.c] + f.i);
+  if (marks.some(m => ids.includes(m.face))) {
+    marks = marks.filter(m => !ids.includes(m.face)); afterMarksChange(); flash('已移除書籤');
+  } else {
+    const f = texts[0], o = pageStart(f.c, f.i);
+    marks.push({ c: f.c, l: book.chapters[f.c].label, o, s: measureChapter(f.c).text.slice(o, o + 24) });
+    afterMarksChange(); flash('已加入書籤');
+  }
+}
+function renderMarks() {
+  const ol = $('#markList'), list = marks.filter(m => m.face >= 0).sort((a, b) => a.face - b.face);
+  ol.innerHTML = ''; $('#noMarks').hidden = list.length > 0;
+  list.forEach(m => {
+    const f = faces[m.face], li = document.createElement('li'), go = document.createElement('button'), rm = document.createElement('button');
+    go.type = rm.type = 'button'; go.className = 'go'; rm.className = 'rm';
+    go.innerHTML = `<b>${esc(book.chapters[f.c].label || '正文')}，第 ${f.folio} 頁</b><span>${esc(m.s || '')}</span>`;
+    go.onclick = () => { $('#toc').close(); goTo(spreadOf(m.face)); };
+    rm.textContent = '移除'; rm.setAttribute('aria-label', `移除第 ${f.folio} 頁的書籤`);
+    rm.onclick = () => { marks = marks.filter(x => x !== m); afterMarksChange(); $('#closeToc').focus(); };
+    li.append(go, rm); ol.append(li);
+  });
+}
+function save() { try { localStorage.setItem(storeKey(), JSON.stringify({ loc: location_(), size: sizeStep })); } catch (e) {} }
+function buildToc() {
+  const items = [['書名頁', faces.findIndex(f => f.t === 'title'), '']];
+  if (book.front.length) items.push(['題記', faces.findIndex(f => f.t === 'epigraph'), '']);
+  book.chapters.forEach((c, i) => items.push([c.label || '正文', chapterStart[i], faces[chapterStart[i]].folio]));
+  const ol = $('#tocList'); ol.innerHTML = '';
+  items.forEach(([label, idx, folio]) => {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.innerHTML = `${esc(label)}<span>${folio}</span>`;
+    b.onclick = () => { $('#toc').close(); goTo(spreadOf(idx)); };
+    li.append(b); ol.append(li);
+  });
+  renderMarks();
+}
+
+function layout(loc) {
+  settle(); M = metrics();
+  const b = $('#book'), sp = $('#spine'), { W, H, double } = M;
+  document.body.classList.toggle('single', !double);
+  b.style.width = (double ? 2 * W : W) + 'px'; b.style.height = H + 'px';
+  sp.style.left = (double ? W : 0) + 'px';
+  $('.edge.l').style.display = $('.edge.r').style.display = double ? '' : 'none';
+  ['#front', '#back', '#baseR'].forEach(s => Object.assign($(s).style, { left: 0, width: W + 'px', height: H + 'px' }));
+  Object.assign($('#baseL').style, { left: -W + 'px', width: W + 'px', height: H + 'px' });
+  Object.assign($('#castclip').style, { left: (double ? -W : 0) + 'px', width: (double ? 2 * W : W) + 'px', height: H + 'px' });
+  ['#baseL', '#baseR', '#front', '#back'].forEach(s => $(s)._k = null);
+  M.pages = paginate(); buildFaces(M.pages); refreshMarks();
+  spread = Math.min(maxSpread, restore(loc));
+  b.style.transition = 'none'; showIdle(); b.offsetWidth; b.style.transition = '';
+  buildToc();
+}
+
+function open(data) {
+  book = data; document.title = book.title;
+  $('#notice').remove(); $('#book').hidden = false; $('#bar').hidden = false;
+  $('#fulltext').innerHTML = `<h1>${esc(book.title)}</h1>` + book.front.map(r => `<p>${runsHTML(r)}</p>`).join('') +
+    book.chapters.map(c => `<h2>${esc(c.label)}</h2>` + c.paras.map(r => `<p>${runsHTML(r)}</p>`).join('')).join('');
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(storeKey())); } catch (e) {}
+  if (saved && [-2, 0, 2].includes(saved.size)) sizeStep = saved.size;
+  loadMarks(); markSize(); layout(saved && saved.loc); loadViews();
+
+  const el = $('#book');
+  el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
+  $('#next').onclick = () => step(1); $('#prev').onclick = () => step(-1);
+  $('#tocBtn').onclick = () => $('#toc').showModal(); $('#closeToc').onclick = () => $('#toc').close();
+  $('#markBtn').onclick = toggleMark;
+  $('#sizeBtn').onclick = () => {
+    const loc = location_(), i = SIZES.findIndex(x => x[0] === sizeStep);
+    sizeStep = SIZES[(i + 1) % SIZES.length][0]; markSize(); layout(loc); save();
+  };
+  addEventListener('keydown', e => {
+    if ($('#toc').open || e.altKey || e.ctrlKey || e.metaKey) return;
+    const onBtn = e.target.tagName === 'BUTTON';
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !onBtn)) { e.preventDefault(); step(1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); step(-1); }
+    else if (e.key === 'b' || e.key === 'B') toggleMark();
+    else if (e.key === 'Home') goTo(0); else if (e.key === 'End') goTo(maxSpread);
+  });
+  let rt; addEventListener('resize', () => { clearTimeout(rt); const loc = location_(); rt = setTimeout(() => layout(loc), 160); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!turn) layout(location_()); });
+}
+function markSize() {
+  const label = SIZES.find(x => x[0] === sizeStep)[1], b = $('#sizeBtn');
+  b.textContent = `字：${label}`; b.setAttribute('aria-label', `字級目前是${label}，按一下切換`);
+}
+
+/* 閱覽次數：同一個分頁重新整理不重複計算 */
+async function loadViews() {
+  const { protocol, hostname, pathname } = location;
+  if (!CONFIG.views || window.__BOOK__ || !/^https?:$/.test(protocol) || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(hostname)) return;
+  const clean = t => t.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '');
+  const ns = clean(hostname).slice(0, 64), key = ('views-' + (clean(pathname.replace(/index\.html$/, '')) || 'home')).slice(0, 64);
+  const flag = `flipbook:viewed:${ns}/${key}`;
+  let seen = false; try { seen = !!sessionStorage.getItem(flag); } catch (e) {}
+  try {
+    const res = await fetch(`https://abacus.jasoncameron.dev/${seen ? 'get' : 'hit'}/${ns}/${key}`, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return;
+    const { value } = await res.json();
+    if (!Number.isFinite(value)) return;
+    viewCount = value;
+    try { sessionStorage.setItem(flag, '1'); } catch (e) {}
+    document.querySelectorAll('.views').forEach(el => el.textContent = viewsText());
+  } catch (e) { console.warn('閱覽次數暫時無法取得', e); }
+}
+
+function askForFile(msg) {
+  const n = $('#notice');
+  n.innerHTML = `<div>${msg}</div><label>選擇 Word 檔<input type="file" accept=".docx" multiple></label>`;
+  n.querySelector('input').onchange = async e => {
+    const num = f => +(f.name.match(/-(\d+)\.docx$/i) || [0, 1])[1];
+    const files = [...e.target.files].sort((a, b) => num(a) - num(b)); if (!files.length) return;
+    try { open(mergeParts(await Promise.all(files.map(async f => readParas(await f.arrayBuffer()))))); }
+    catch (err) { askForFile('這個檔案讀不出內容，請確認它是 .docx 格式。'); }
+  };
+}
+
+(async () => {
+  if (window.__BOOK__) return open(window.__BOOK__);
+  try {
+    open(mergeParts(await loadParts()));
+  } catch (err) {
+    console.error(err);
+    askForFile(`找不到 ${esc(CONFIG.file)}。<br>請把它和 index.html 放在同一層；在電腦上直接開啟時，也可以手動選擇檔案。`);
+  }
+})();
+</script>
+</body>
+</html>
