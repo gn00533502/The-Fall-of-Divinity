@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self' https://api.github.com; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'">
+<title>上傳新篇章</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap">
+<style>
+:root{--stage:#3b4c50;--stage-deep:#2c3b3f;--paper:#e8eae0;--ink:#232c2d;--soft:#5d6866;--rule:#c5cabf;--cloth:#1d3b3e;--silver:#c8d3ca;--warn:#8a4b12;--bad:#9b2f2a;--ok:#1f6245;
+  --serif:"Noto Serif TC","Noto Serif CJK TC","Source Han Serif TC","Songti TC","PMingLiU",serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100dvh;padding:clamp(16px,6vh,64px) 14px;background:radial-gradient(120% 90% at 50% 30%,var(--stage),var(--stage-deep)) fixed;font-family:var(--serif);color:var(--ink);line-height:1.75}
+main{max-width:520px;margin:auto;background:var(--paper);padding:clamp(24px,6vw,44px);box-shadow:0 10px 30px rgba(10,20,22,.35)}
+h1{margin:0;font-size:30px;font-weight:900;line-height:1.3}
+#book{margin:2px 0 0;color:var(--soft)}
+section{margin-top:26px}
+h2{margin:0 0 8px;font-size:17px;font-weight:700}
+label{display:block;margin-bottom:6px}
+input[type=password]{width:100%;height:46px;padding:0 12px;border:1px solid #8d978f;background:#f4f5ee;font:15px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);border-radius:2px}
+.check{display:flex;gap:8px;align-items:center;margin:10px 0 0;font-size:15px}
+.check input{width:18px;height:18px;margin:0;accent-color:var(--cloth)}
+button,.file{font:inherit;cursor:pointer;border-radius:2px}
+.primary{display:block;width:100%;min-height:48px;margin-top:14px;padding:8px 16px;border:0;background:var(--cloth);color:#eef2ea;font-weight:700}
+.primary:hover:not(:disabled){background:#2a5154}
+.primary:disabled{background:#a9b1a8;color:#eef0e8;cursor:not-allowed}
+.plain{min-height:44px;padding:0 2px;border:0;background:none;color:var(--soft);text-decoration:underline;text-underline-offset:3px}
+.plain:hover{color:var(--ink)}.plain.danger{color:var(--bad)}
+:focus-visible{outline:2px solid var(--cloth);outline-offset:2px}
+.file{display:flex;align-items:center;justify-content:center;min-height:92px;padding:14px;border:1px dashed #7f8a83;background:#f0f1e9;text-align:center;overflow-wrap:anywhere}
+.file.over,.file:hover{background:#e0e5da;border-color:var(--cloth)}
+.file:focus-within{outline:2px solid var(--cloth);outline-offset:2px}
+.file input{position:absolute;opacity:0;width:1px;height:1px}
+ul{list-style:none;margin:12px 0 0;padding:0}
+li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule)}
+li span{color:var(--soft);font-size:14px;text-align:right}
+li span.replace{color:var(--warn)}
+.note{margin:10px 0 0;font-size:15px;color:var(--soft)}
+.warn{margin:12px 0 0;padding-left:10px;border-left:3px solid var(--warn);font-size:15px;color:var(--warn)}
+#msg{margin:14px 0 0;font-size:15px;min-height:1.75em}
+#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+#msg a{color:inherit}
+footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;padding-top:6px;border-top:1px solid var(--rule);flex-wrap:wrap}
+footer a{color:var(--soft);font-size:16px}
+</style>
+</head>
+<body>
+<main>
+  <h1>上傳新篇章</h1>
+  <p id="book">僅限持有上傳密鑰的人使用</p>
+
+  <form id="login">
+    <section>
+      <label for="key">上傳密鑰</label>
+      <input id="key" type="password" autocomplete="off" spellcheck="false" required>
+      <label class="check"><input id="remember" type="checkbox">在這台裝置記住密鑰</label>
+      <button class="primary" id="loginBtn" type="submit">確認密鑰</button>
+    </section>
+  </form>
+
+  <div id="work" hidden>
+    <section>
+      <h2>選擇 Word 檔</h2>
+      <label class="file" id="drop"><input id="file" type="file" accept=".docx"><span id="fileName">點這裡選擇 .docx 檔，或把檔案拖進來</span></label>
+      <p class="note">檔案請從章節標題開始，例如單獨一行的 CH VI 或「第六章」。</p>
+      <div id="review"></div>
+      <button class="primary" id="send" type="button" disabled>上傳</button>
+    </section>
+  </div>
+  <p id="msg" role="status" aria-live="polite"></p>
+  <footer>
+    <a href="./">回到書本</a>
+    <span>
+      <button class="plain danger" id="undo" type="button" hidden></button>
+      <button class="plain" id="logout" type="button" hidden>登出</button>
+    </span>
+  </footer>
+</main>
+
+<script>
+const CONFIG = { file: 'novel.docx' };
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const HEADING = /^(CH(APTER)?\.?\s*[IVXLCDM\d]+|第[一二三四五六七八九十百千零〇\d]+[章回節卷部])(\s.*)?$/i;
+async function unzipEntry(buf, name) {
+  const v = new DataView(buf), td = new TextDecoder();
+  let e = buf.byteLength - 22;
+  while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('not a zip');
+  let p = v.getUint32(e + 16, true);
+  for (let i = 0, n = v.getUint16(e + 10, true); i < n; i++) {
+    const method = v.getUint16(p + 10, true), size = v.getUint32(p + 20, true);
+    const nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true);
+    const off = v.getUint32(p + 42, true);
+    if (td.decode(new Uint8Array(buf, p + 46, nl)) === name) {
+      const start = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true);
+      const raw = new Uint8Array(buf, start, size);
+      if (method === 0) return td.decode(raw);
+      const s = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Response(s).text();
+    }
+    p += 46 + nl + xl + cl;
+  }
+  throw new Error('no ' + name);
+}
+
+async function readParas(buf) {
+  const xml = await unzipEntry(buf, 'word/document.xml');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const on = (rPr, tag) => {
+    const el = rPr && rPr.getElementsByTagNameNS(W, tag)[0];
+    if (!el) return false;
+    const val = el.getAttributeNS(W, 'val');
+    return val !== '0' && val !== 'false';
+  };
+  const paras = [];
+  for (const p of doc.getElementsByTagNameNS(W, 'p')) {
+    const runs = [];
+    for (const r of p.getElementsByTagNameNS(W, 'r')) {
+      let t = '';
+      for (const n of r.children) {
+        if (n.namespaceURI !== W) continue;
+        if (n.localName === 't') t += n.textContent;
+        else if (n.localName === 'tab') t += '　';
+      }
+      if (!t) continue;
+      const bold = on(r.getElementsByTagNameNS(W, 'rPr')[0], 'b');
+      const last = runs[runs.length - 1];
+      if (last && last[1] === bold) last[0] += t; else runs.push([t, bold]);
+    }
+    if (runs.some(x => x[0].trim())) paras.push(runs);
+  }
+  return paras;
+}
+
+const labelKey = t => t.replace(/\s+/g, '').toUpperCase();
+/* 把 novel.docx、novel-2.docx… 接成一本書。後面的檔案若有同名章節，會取代前面的版本。 */
+function mergeParts(parts) {
+  const plain = r => r.map(x => x[0]).join('').trim();
+  const first = parts[0] || [];
+  const book = { title: first.length ? plain(first[0]) : '未命名', front: [], chapters: [] };
+  let cur = null;
+  parts.forEach((paras, n) => {
+    const list = n === 0 ? paras.slice(1) : (paras.length && plain(paras[0]) === book.title ? paras.slice(1) : paras);
+    for (const r of list) {
+      const t = plain(r);
+      if (HEADING.test(t)) {
+        cur = book.chapters.find(c => labelKey(c.label) === labelKey(t));
+        if (cur) cur.paras = [];
+        else { cur = { label: t, paras: [] }; book.chapters.push(cur); }
+      }
+      else if (cur) cur.paras.push(r);
+      else book.front.push(r);
+    }
+  });
+  if (!book.chapters.length) book.chapters.push({ label: '', paras: book.front.splice(0) });
+  return book;
+}
+
+const KEY_STORE = 'flipbook:upload-key', MAX_BYTES = 25 * 1024 * 1024;
+const owner = location.hostname.split('.')[0];
+const repo = location.pathname.split('/').filter(p => p && !/\.html$/.test(p))[0] || location.hostname;
+const base = CONFIG.file.replace(/\.docx$/i, '');
+const nameOf = n => n === 1 ? CONFIG.file : `${base}-${n}.docx`;
+let token = '', S = null, picked = null, busy = false, undoArmed = 0, pollTimer = 0;
+
+function say(text, kind = '', html = false) {
+  const m = $('#msg'); m.className = kind; m[html ? 'innerHTML' : 'textContent'] = text;
+}
+class ApiError extends Error { constructor(status) { super('HTTP ' + status); this.status = status; } }
+async function api(path, opts = {}, accept = 'application/vnd.github+json') {
+  const headers = { Authorization: `Bearer ${token}`, Accept: accept };
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, { cache: 'no-store', ...opts, headers });
+  if (!res.ok) throw new ApiError(res.status);
+  return res;
+}
+function explain(e) {
+  switch (e.status) {
+    case 401: return '密鑰不正確或已過期，請向網站管理者索取新的密鑰。';
+    case 403: return '這把密鑰沒有寫入權限，或暫時被 GitHub 限制，請聯絡網站管理者。';
+    case 404: return '這把密鑰無法存取這本書的檔案，請聯絡網站管理者確認設定。';
+    case 409: case 422: return '檔案狀態剛剛有變動，已重新讀取，請再試一次。';
+    default: return e.status ? `GitHub 回傳錯誤（${e.status}），請稍後再試。` : '連不上 GitHub，請檢查網路後再試一次。';
+  }
+}
+
+async function loadState() {
+  const info = await (await api('')).json(), branch = info.default_branch;
+  const list = await (await api(`/contents?ref=${encodeURIComponent(branch)}`)).json();
+  const byName = new Map(list.filter(f => f.type === 'file').map(f => [f.name, f]));
+  const files = [];
+  for (let n = 1; byName.has(nameOf(n)); n++) files.push({ n, name: nameOf(n), sha: byName.get(nameOf(n)).sha });
+  const parts = [];
+  for (const f of files) {
+    const res = await api(`/contents/${encodeURIComponent(f.name)}?ref=${encodeURIComponent(branch)}`, {}, 'application/vnd.github.raw+json');
+    parts.push(await readParas(await res.arrayBuffer()));
+  }
+  const merged = mergeParts(parts);
+  S = { branch, files, next: files.length + 1, title: merged.title, chapters: merged.chapters.map(c => c.label) };
+  $('#book').textContent = `${S.title}，目前共 ${S.chapters.length} 章`;
+  renderUndo(); renderReview();
+}
+function renderUndo() {
+  const last = S && S.files[S.files.length - 1], b = $('#undo');
+  clearTimeout(undoArmed); undoArmed = 0;
+  b.hidden = !last || last.n < 2;
+  if (!b.hidden) b.textContent = `撤回最新上傳（${last.name}）`;
+}
+
+async function signIn(value, remember) {
+  token = value.trim(); busy = true; $('#loginBtn').disabled = true; say('正在確認密鑰並讀取目前的章節…');
+  try {
+    await loadState();
+    try { remember ? localStorage.setItem(KEY_STORE, token) : localStorage.removeItem(KEY_STORE); } catch (e) {}
+    $('#key').value = ''; $('#login').hidden = true; $('#work').hidden = false; $('#logout').hidden = false;
+    say(`新檔案會存成 ${nameOf(S.next)}，接在目前內容之後。`);
+  } catch (e) {
+    console.warn(e); token = ''; S = null; say(e.status ? explain(e) : (e instanceof TypeError ? explain(e) : '目前的 Word 檔讀取失敗，請聯絡網站管理者。'), 'bad');
+    try { localStorage.removeItem(KEY_STORE); } catch (x) {}
+  } finally { busy = false; $('#loginBtn').disabled = false; }
+}
+
+async function pick(file) {
+  picked = null; renderReview();
+  if (!file) return;
+  $('#fileName').textContent = file.name;
+  if (!/\.docx$/i.test(file.name)) return say('請選擇 .docx 格式的 Word 檔。', 'bad');
+  if (file.size > MAX_BYTES) return say('檔案超過 25 MB，請先移除圖片或拆成兩個檔案。', 'bad');
+  try {
+    const buf = await file.arrayBuffer(), paras = await readParas(buf);
+    const plain = r => r.map(x => x[0]).join('').trim();
+    const list = paras.length && plain(paras[0]) === S.title ? paras.slice(1) : paras;
+    const heads = [], before = [];
+    let chars = 0;
+    for (const r of list) {
+      const t = plain(r);
+      if (HEADING.test(t)) heads.push(t);
+      else { chars += t.replace(/\s/g, '').length; if (!heads.length) before.push(t); }
+    }
+    if (!chars && !heads.length) return say('這個檔案沒有文字內容。', 'bad');
+    picked = { buf, heads, before, chars }; say(''); renderReview();
+  } catch (e) { console.warn(e); say('讀不出這個檔案，請確認它是 Word 存成的 .docx。', 'bad'); }
+}
+function renderReview() {
+  const box = $('#review'), send = $('#send');
+  send.disabled = !picked || busy; send.textContent = S ? `上傳為 ${nameOf(S.next)}` : '上傳';
+  if (!picked || !S) { box.innerHTML = ''; return; }
+  const have = new Set(S.chapters.map(labelKey));
+  let html = '<ul>' + picked.heads.map(h => {
+    const old = have.has(labelKey(h));
+    return `<li>${esc(h)}<span class="${old ? 'replace' : ''}">${old ? '會取代現有內容' : '新章節'}</span></li>`;
+  }).join('') + '</ul>';
+  html += `<p class="note">內文約 ${picked.chars.toLocaleString('zh-TW')} 字。</p>`;
+  if (!picked.heads.length) html += '<p class="warn">找不到章節標題，全部內容會接在目前最後一章的後面。</p>';
+  else if (picked.before.length) html += `<p class="warn">第一個章節標題前有文字，會接在目前最後一章的後面：「${esc(picked.before[0].slice(0, 24))}」</p>`;
+  box.innerHTML = html;
+}
+function toBase64(buf) {
+  const bytes = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function refreshAfterConflict(e) {
+  if (e.status === 409 || e.status === 422) { try { await loadState(); } catch (x) {} }
+}
+async function upload() {
+  if (!picked || busy) return;
+  const name = nameOf(S.next), labels = picked.heads.join('、');
+  busy = true; renderReview(); say(`正在上傳 ${name}…`);
+  try {
+    await api(`/contents/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify({
+      message: `新增篇章 ${name}${labels ? `（${labels}）` : ''}`, content: toBase64(picked.buf), branch: S.branch }) });
+    picked = null; $('#file').value = ''; $('#fileName').textContent = '點這裡選擇 .docx 檔，或把檔案拖進來';
+    await loadState();
+    say(`${name} 已上傳。網站更新中，通常 1～2 分鐘後會出現在書裡。`, 'ok'); waitLive(name);
+  } catch (e) { console.warn(e); await refreshAfterConflict(e); say(explain(e), 'bad'); }
+  finally { busy = false; renderReview(); }
+}
+function waitLive(name) {
+  clearTimeout(pollTimer); let tries = 0;
+  const check = async () => {
+    try {
+      const r = await fetch(name, { method: 'HEAD', cache: 'no-store' });
+      if (r.ok) return say(`${esc(name)} 已經上線，<a href="./">到書裡查看</a>。`, 'ok', true);
+    } catch (e) {}
+    if (++tries < 30) pollTimer = setTimeout(check, 10000);
+  };
+  pollTimer = setTimeout(check, 5000);
+}
+async function undo() {
+  const last = S.files[S.files.length - 1], b = $('#undo');
+  if (busy || !last || last.n < 2) return;
+  if (!undoArmed) {
+    b.textContent = `再按一次，確定撤回 ${last.name}`;
+    undoArmed = setTimeout(renderUndo, 6000); return;
+  }
+  busy = true; clearTimeout(pollTimer); say(`正在撤回 ${last.name}…`);
+  try {
+    await api(`/contents/${encodeURIComponent(last.name)}`, { method: 'DELETE', body: JSON.stringify({ message: `撤回 ${last.name}`, sha: last.sha, branch: S.branch }) });
+    await loadState(); say(`已撤回 ${last.name}。網站更新後就會從書裡消失。`, 'ok');
+  } catch (e) { console.warn(e); await refreshAfterConflict(e); renderUndo(); say(explain(e), 'bad'); }
+  finally { busy = false; renderReview(); }
+}
+function logout() {
+  token = ''; S = null; picked = null; clearTimeout(pollTimer);
+  try { localStorage.removeItem(KEY_STORE); } catch (e) {}
+  $('#work').hidden = true; $('#login').hidden = false; $('#logout').hidden = true; $('#undo').hidden = true;
+  $('#book').textContent = '僅限持有上傳密鑰的人使用'; $('#file').value = ''; $('#fileName').textContent = '點這裡選擇 .docx 檔，或把檔案拖進來'; say('已登出。'); renderReview();
+}
+
+$('#login').addEventListener('submit', e => { e.preventDefault(); if (!busy) signIn($('#key').value, $('#remember').checked); });
+$('#file').addEventListener('change', e => pick(e.target.files[0]));
+$('#send').addEventListener('click', upload); $('#undo').addEventListener('click', undo); $('#logout').addEventListener('click', logout);
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => pick(e.dataTransfer.files[0]));
+
+if (!location.hostname.endsWith('.github.io')) {
+  $('#login').hidden = true; say('請從這本書的 github.io 網址開啟上傳頁。', 'bad');
+} else {
+  let saved = null; try { saved = localStorage.getItem(KEY_STORE); } catch (e) {}
+  if (saved) { $('#remember').checked = true; signIn(saved, true); }
+}
+</script>
+</body>
+</html>
