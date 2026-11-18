@@ -142,7 +142,7 @@ dialog h2+ol,dialog h2+p{margin-top:0}
 const CONFIG = {
   file: 'novel.docx',  // 第一個 Word 檔；續集依序命名 novel-2.docx、novel-3.docx…
   author: '',          // 想在封面顯示的作者名或筆名，留空就不顯示
-  views: true          // 是否統計並顯示閱覽次數（使用免費的 Abacus 計數服務）
+  views: true          // 是否統計並顯示閱覽次數（使用免費的 CountAPI 計數服務）
 };
 /* ========================== */
 
@@ -694,14 +694,14 @@ function markSize() {
 async function loadViews() {
   const { protocol, hostname, pathname } = location;
   if (!CONFIG.views || window.__BOOK__ || !/^https?:$/.test(protocol) || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(hostname)) return;
-  const clean = t => t.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '');
-  const ns = clean(hostname).slice(0, 64), key = ('views-' + (clean(pathname.replace(/index\.html$/, '')) || 'home')).slice(0, 64);
-  const flag = `flipbook:viewed:${ns}/${key}`;
+  const clean = t => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const key = `flipbook-${clean(hostname)}-${clean(pathname.replace(/index\.html$/, '')) || 'home'}`;
+  const flag = `flipbook:viewed:${key}`;
   let seen = false; try { seen = !!sessionStorage.getItem(flag); } catch (e) {}
   try {
-    const res = await fetch(`https://abacus.jasoncameron.dev/${seen ? 'get' : 'hit'}/${ns}/${key}`, { signal: AbortSignal.timeout(6000) });
+    const res = await fetch(`https://countapi.mileshilliard.com/api/v1/${seen ? 'get' : 'hit'}/${key}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
     if (!res.ok) return;
-    const { value } = await res.json();
+    const value = Number((await res.json()).value);
     if (!Number.isFinite(value)) return;
     viewCount = value;
     try { sessionStorage.setItem(flag, '1'); } catch (e) {}
